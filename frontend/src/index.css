@@ -1,0 +1,362 @@
+/* ============================
+   DESIGN TOKENS (CSS Custom Properties)
+   ============================ */
+:root {
+  --color-primary: #3B82F6;
+  --color-primary-dark: #2563EB;
+  --color-secondary: #3B82F6;
+  --color-accent: #3B82F6;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-bg: #0B0E14;
+  --color-surface: rgba(18, 24, 36, 0.75);
+  --color-card: rgba(20, 27, 40, 0.85);
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #94A3B8;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --blur: 16px;
+  --blur-strong: 24px;
+}
+
+/* ============================
+   RESET & BASE
+   ============================ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  outline: none !important;
+}
+
+body {
+  font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+#root {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* ============================
+   GLASSMORPHISM UTILITIES
+   ============================ */
+.glassmorphism {
+  background: rgba(20, 27, 40, 0.85);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 12px rgba(59, 130, 246, 0.02);
+}
+
+.glassmorphism-strong {
+  background: rgba(18, 24, 36, 0.92);
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 16px rgba(59, 130, 246, 0.03);
+}
+
+/* ============================
+   SCROLLBAR
+   ============================ */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.35);
+}
+
+/* ============================
+   ANIMATIONS
+   ============================ */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.35);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.fade-in {
+  animation: fadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================
+   LOADING
+   ============================ */
+.spinner {
+  border: 3px solid rgba(148, 163, 184, 0.1);
+  border-top: 3px solid var(--color-primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 0.8s linear infinite;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ============================
+   TEXT UTILITIES
+   ============================ */
+.gradient-text {
+  background: linear-gradient(135deg, #3B82F6, #3B82F6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-warm {
+  background: linear-gradient(135deg, #F59E0B, #EF4444);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-ai {
+  background: linear-gradient(135deg, #3B82F6, #3B82F6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================
+   COLOR UTILITIES
+   ============================ */
+.positive {
+  color: var(--color-success);
+}
+
+.negative {
+  color: var(--color-error);
+}
+
+/* ============================
+   BUTTON EFFECTS
+   ============================ */
+.btn-pulse {
+  animation: pulse 2.5s infinite;
+}
+
+.btn-glow {
+  animation: glowPulse 3s ease-in-out infinite;
+}
+
+/* ============================
+   SCROLL-DRIVEN PREMIUM BACKGROUND
+   ============================ */
+
+/* CSS variable defaults (overridden per-frame by JS scroll listener) */
+.premium-gradient {
+  --g-o1c: 0,255,157;
+  --g-o1x: 18%;
+  --g-o1y: 20%;
+  --g-o1r: 420px;
+  --g-o2c: 59,130,246;
+  --g-o2x: 82%;
+  --g-o2y: 30%;
+  --g-o2r: 380px;
+  --g-o3c: 139,92,246;
+  --g-o3x: 50%;
+  --g-o3y: 85%;
+  --g-o3r: 300px;
+  --g-tl: 0,255,157;
+  --g-tr: 59,130,246;
+  --g-cl: 139,92,246;
+  --g-cr: 59,130,246;
+  --g-bc: 16,185,129;
+
+  position: relative;
+  min-height: 100vh;
+  background: var(--color-bg) !important;
+  isolation: isolate;
+}
+
+/* Layer 1: corner glows, kept very subtle (5-8% opacity) */
+.premium-gradient::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
+  background:
+    radial-gradient(ellipse 62% 50% at 7% 4%,
+      rgba(var(--g-tl), 0.08) 0%, rgba(var(--g-tl), 0.02) 50%, transparent 100%),
+    radial-gradient(ellipse 65% 52% at 93% 3%,
+      rgba(var(--g-tr), 0.08) 0%, rgba(var(--g-tr), 0.02) 50%, transparent 100%),
+    radial-gradient(ellipse 50% 60% at 14% 50%,
+      rgba(var(--g-cl), 0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 54% 55% at 86% 55%,
+      rgba(var(--g-cr), 0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 75% 42% at 50% 100%,
+      rgba(var(--g-bc), 0.05) 0%, rgba(var(--g-tl), 0.02) 50%, transparent 100%),
+    radial-gradient(ellipse 46% 36% at 4% 95%,
+      rgba(var(--g-cl), 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 46% 36% at 96% 90%,
+      rgba(var(--g-cr), 0.04) 0%, transparent 60%),
+    linear-gradient(180deg,
+      rgba(var(--g-tl), 0.02) 0%, transparent 35%,
+      rgba(var(--g-tr), 0.015) 70%, rgba(var(--g-cl), 0.02) 100%);
+
+  background-attachment: fixed;
+  transition: background 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Layer 2: three large drifting orbs, kept subtle (4-8% opacity) */
+.premium-gradient::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
+  background:
+    radial-gradient(circle var(--g-o1r) at var(--g-o1x) var(--g-o1y),
+      rgba(var(--g-o1c), 0.06) 0%, rgba(var(--g-o1c), 0.015) 55%, transparent 100%),
+    radial-gradient(circle var(--g-o2r) at var(--g-o2x) var(--g-o2y),
+      rgba(var(--g-o2c), 0.06) 0%, rgba(var(--g-o2c), 0.015) 55%, transparent 100%),
+    radial-gradient(circle var(--g-o3r) at var(--g-o3x) var(--g-o3y),
+      rgba(var(--g-o3c), 0.05) 0%, rgba(var(--g-o3c), 0.01) 55%, transparent 100%);
+
+  background-attachment: fixed;
+  transition: background 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: orbPulse 10s ease-in-out infinite alternate;
+}
+
+@keyframes orbPulse {
+  0%   { opacity: 0.75; }
+  50%  { opacity: 0.90; }
+  100% { opacity: 0.80; }
+}
+
+/* Page content above gradient layers */
+.premium-gradient > * {
+  position: relative;
+  z-index: auto;
+}
+
+/* ============================
+   AUTOFILL FIX
+   ============================ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #121824 inset !important;
+  -webkit-text-fill-color: #F8FAFC !important;
+  caret-color: #F8FAFC !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+input {
+  filter: none;
+}

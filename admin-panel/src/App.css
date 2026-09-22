@@ -1,0 +1,130 @@
+.admin-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+.admin-sidebar {
+  background: linear-gradient(180deg, #1e293b 0%, #0F172A 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-header {
+  background: rgba(19, 26, 46, 0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-card {
+  background: linear-gradient(135deg, rgba(19, 26, 46, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+}
+
+.admin-table {
+  background: rgba(19, 26, 46, 0.6);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.admin-table th {
+  background: rgba(0, 0, 0, 0.2);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.admin-table tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.stats-card {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.stats-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.positive-change {
+  color: #3B82F6;
+  font-weight: 600;
+}
+
+.negative-change {
+  color: #f43f5e;
+  font-weight: 600;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-pending {
+  background: rgba(255, 193, 7, 0.1);
+  color: #FFC107;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.status-completed {
+  background: rgba(0, 211, 149, 0.1);
+  color: #3B82F6;
+  border: 1px solid rgba(0, 211, 149, 0.3);
+}
+
+.status-failed {
+  background: rgba(255, 107, 107, 0.1);
+  color: #f43f5e;
+  border: 1px solid rgba(255, 107, 107, 0.3);
+}
+
+.kyc-verified {
+  background: rgba(0, 211, 149, 0.1);
+  color: #3B82F6;
+}
+
+.kyc-pending {
+  background: rgba(255, 193, 7, 0.1);
+  color: #FFC107;
+}
+
+.kyc-rejected {
+  background: rgba(255, 107, 107, 0.1);
+  color: #f43f5e;
+}
+
+.action-button {
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+}
+
+.chart-container {
+  background: rgba(19, 26, 46, 0.6);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.loading-spinner {
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top: 3px solid #3B82F6;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

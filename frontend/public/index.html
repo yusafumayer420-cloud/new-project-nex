@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/logo.png?v=2" />
+    <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/logo.png?v=2" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0A0E17" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo.png?v=2" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <title>NexVor</title>
+
+    <!-- Open Graph / Telegram / Facebook / WhatsApp -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://nexvor.com/" />
+    <meta property="og:title" content="NexVor" />
+    <meta property="og:image" content="https://nexvor.com/telegram-preview.jpg?v=2" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:description" content="" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="NexVor" />
+    <meta name="twitter:image" content="https://nexvor.com/telegram-preview.jpg?v=2" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background: linear-gradient(135deg, #0A0E17 0%, #131A2E 100%);
+        color: white;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 4px;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      
+      @keyframes pulse {
+        0%, 100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      
+      .pulse {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      
+      /* Hide Google Translate top banner and widget */
+      .goog-te-banner-frame { display: none !important; }
+      .goog-te-gadget { display: none !important; }
+      body { top: 0px !important; }
+    </style>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="google_translate_element" style="display:none;"></div>
+    <script type="text/javascript">
+      function googleTranslateElementInit() {
+        new google.translate.TranslateElement({
+          pageLanguage: 'en',
+          autoDisplay: false
+        }, 'google_translate_element');
+      }
+
+      /**
+       * Switch Google Translate language instantly without page reload.
+       * Uses the hidden Google Translate <select> dropdown to trigger
+       * an in-place DOM translation, which is significantly faster
+       * than a full page reload.
+       */
+      function switchGoogleTranslateLanguage(langCode) {
+        // Normalize language codes
+        if (langCode === 'zh') langCode = 'zh-CN';
+
+        // If switching back to English, restore original page
+        if (langCode === 'en') {
+          // Try the restore function first (fastest)
+          var restoreBtn = document.querySelector('.goog-te-banner-frame');
+          if (restoreBtn) {
+            var iframeDoc = restoreBtn.contentDocument || restoreBtn.contentWindow.document;
+            var restore = iframeDoc.querySelector('button#restore');
+            if (restore) { restore.click(); return true; }
+          }
+          // Fallback: use the hidden select
+          var sel = document.querySelector('.goog-te-combo');
+          if (sel) {
+            sel.value = '';
+            sel.dispatchEvent(new Event('change'));
+            return true;
+          }
+          // Last resort: cookie-based with reload
+          document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+          document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + window.location.hostname;
+          window.location.reload();
+          return false;
+        }
+
+        // For non-English languages, use the hidden <select>
+        var select = document.querySelector('.goog-te-combo');
+        if (select) {
+          select.value = langCode;
+          select.dispatchEvent(new Event('change'));
+          return true;
+        }
+
+        // Fallback if Google Translate widget hasn't loaded yet
+        document.cookie = "googtrans=/en/" + langCode + "; path=/";
+        document.cookie = "googtrans=/en/" + langCode + "; path=/; domain=" + window.location.hostname;
+        window.location.reload();
+        return false;
+      }
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    <div id="root"></div>
+  </body>
+</html>
