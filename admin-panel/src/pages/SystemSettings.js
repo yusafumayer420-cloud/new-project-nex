@@ -22,7 +22,9 @@ const SystemSettings = () => {
     marketCap: '$2.4T',
     volume24h: '$64B',
     btcDominance: '51.2%',
-    ecrPrice: '0.10'
+    ecrPrice: '0.10',
+    ecrVolume: '1000000.00',
+    ecrChange: '0.00'
   });
 
   const [loading, setLoading] = useState(false);
@@ -41,7 +43,9 @@ const SystemSettings = () => {
           marketCap: response.data.marketCap || '$2.4T',
           volume24h: response.data.volume24h || '$64B',
           btcDominance: response.data.btcDominance || '51.2%',
-          ecrPrice: response.data.ecrPrice || 0.10
+          ecrPrice: response.data.ecrPrice || 0.10,
+          ecrVolume: response.data.ecrVolume || '1000000.00',
+          ecrChange: response.data.ecrChange || '0.00'
         }));
       }
     } catch (error) {
@@ -59,7 +63,9 @@ const SystemSettings = () => {
         marketCap: settings.marketCap,
         volume24h: settings.volume24h,
         btcDominance: settings.btcDominance,
-        ecrPrice: parseFloat(settings.ecrPrice)
+        ecrPrice: parseFloat(settings.ecrPrice),
+        ecrVolume: settings.ecrVolume,
+        ecrChange: settings.ecrChange
       });
       toast.success("Market settings saved successfully");
     } catch (error) {
@@ -188,6 +194,34 @@ const SystemSettings = () => {
                   value={settings.ecrPrice}
                   onChange={(e) => handleSettingChange("ecrPrice", e.target.value)}
                   placeholder="0.10"
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
+                  ECR 24h Volume
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={settings.ecrVolume}
+                  onChange={(e) => handleSettingChange("ecrVolume", e.target.value)}
+                  placeholder="1000000.00"
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
+                  ECR 24h Change (%)
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={settings.ecrChange}
+                  onChange={(e) => handleSettingChange("ecrChange", e.target.value)}
+                  placeholder="0.00"
                 />
               </Box>
             </Grid>

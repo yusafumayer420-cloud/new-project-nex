@@ -21,6 +21,14 @@ const SystemSettingsSchema = new mongoose.Schema({
     type: Number,
     default: 0.10
   },
+  ecrVolume: {
+    type: String,
+    default: "1000000.00"
+  },
+  ecrChange: {
+    type: String,
+    default: "0.00"
+  },
   updatedAt: {
     type: Date,
     default: Date.now

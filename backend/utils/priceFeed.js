@@ -114,11 +114,23 @@ function startPriceFeed(io) {
   setInterval(async () => {
     try {
       const settings = await SystemSettings.findOne();
-      if (settings && settings.ecrPrice !== undefined) {
+      if (settings) {
         const index = latestPrices.findIndex(p => p.symbol === 'ECR/USDT');
-        if (index !== -1 && latestPrices[index].price !== settings.ecrPrice) {
-          latestPrices[index].price = settings.ecrPrice;
-          broadcastUpdate();
+        if (index !== -1) {
+          let updated = false;
+          if (settings.ecrPrice !== undefined && latestPrices[index].price !== settings.ecrPrice) {
+            latestPrices[index].price = settings.ecrPrice;
+            updated = true;
+          }
+          if (settings.ecrVolume !== undefined && latestPrices[index].volume !== settings.ecrVolume) {
+            latestPrices[index].volume = settings.ecrVolume;
+            updated = true;
+          }
+          if (settings.ecrChange !== undefined && latestPrices[index].change24h !== settings.ecrChange) {
+            latestPrices[index].change24h = settings.ecrChange;
+            updated = true;
+          }
+          if (updated) broadcastUpdate();
         }
       }
     } catch (err) {
