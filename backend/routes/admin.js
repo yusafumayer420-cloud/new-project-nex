@@ -26,7 +26,7 @@ router.get('/settings', protect, adminAuth, async (req, res) => {
 // Update system settings
 router.put('/settings', protect, adminAuth, async (req, res) => {
   try {
-    const { marketCap, volume24h, btcDominance, tradingEnabled } = req.body;
+    const { marketCap, volume24h, btcDominance, tradingEnabled, ecrPrice } = req.body;
     let settings = await SystemSettings.findOne();
     
     if (!settings) {
@@ -37,6 +37,7 @@ router.put('/settings', protect, adminAuth, async (req, res) => {
     if (volume24h !== undefined) settings.volume24h = volume24h;
     if (btcDominance !== undefined) settings.btcDominance = btcDominance;
     if (tradingEnabled !== undefined) settings.tradingEnabled = tradingEnabled;
+    if (ecrPrice !== undefined) settings.ecrPrice = ecrPrice;
     settings.updatedAt = Date.now();
     
     await settings.save();

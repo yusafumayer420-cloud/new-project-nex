@@ -1,5 +1,6 @@
 const WebSocket = require('ws');
 const axios = require('axios');
+const SystemSettings = require('../models/SystemSettings');
 
 const COINS = [
   { symbol: 'BTC/USDT', binanceSymbol: 'btcusdt', coinbaseSymbol: 'BTC-USD' },
@@ -40,6 +41,14 @@ let latestPrices = COINS.map(coin => ({
   change24h: '0.00', // will be updated per ticker using stored open price
   volume: '0.00'
 }));
+
+// Add ECR custom coin
+latestPrices.push({
+  symbol: 'ECR/USDT',
+  price: 0.10,
+  change24h: '0.00',
+  volume: '1000000.00'
+});
 
 async function fetchInitialPrices() {
   try {
@@ -100,6 +109,22 @@ function startPriceFeed(io) {
       }, 2500);
     }
   }
+
+  // Poll for custom coin prices
+  setInterval(async () => {
+    try {
+      const settings = await SystemSettings.findOne();
+      if (settings && settings.ecrPrice !== undefined) {
+        const index = latestPrices.findIndex(p => p.symbol === 'ECR/USDT');
+        if (index !== -1 && latestPrices[index].price !== settings.ecrPrice) {
+          latestPrices[index].price = settings.ecrPrice;
+          broadcastUpdate();
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching custom prices:', err.message);
+    }
+  }, 5000);
 
   // Coinbase uses a single endpoint for all product ticker updates
   const url = `wss://ws-feed.exchange.coinbase.com`;

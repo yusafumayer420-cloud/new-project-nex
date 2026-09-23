@@ -21,7 +21,8 @@ const SystemSettings = () => {
   const [settings, setSettings] = useState({
     marketCap: '$2.4T',
     volume24h: '$64B',
-    btcDominance: '51.2%'
+    btcDominance: '51.2%',
+    ecrPrice: '0.10'
   });
 
   const [loading, setLoading] = useState(false);
@@ -39,7 +40,8 @@ const SystemSettings = () => {
           ...prev,
           marketCap: response.data.marketCap || '$2.4T',
           volume24h: response.data.volume24h || '$64B',
-          btcDominance: response.data.btcDominance || '51.2%'
+          btcDominance: response.data.btcDominance || '51.2%',
+          ecrPrice: response.data.ecrPrice || 0.10
         }));
       }
     } catch (error) {
@@ -56,7 +58,8 @@ const SystemSettings = () => {
       await api.put('/api/admin/settings', {
         marketCap: settings.marketCap,
         volume24h: settings.volume24h,
-        btcDominance: settings.btcDominance
+        btcDominance: settings.btcDominance,
+        ecrPrice: parseFloat(settings.ecrPrice)
       });
       toast.success("Market settings saved successfully");
     } catch (error) {
@@ -169,6 +172,22 @@ const SystemSettings = () => {
                   value={settings.btcDominance}
                   onChange={(e) => handleSettingChange("btcDominance", e.target.value)}
                   placeholder="51.2%"
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
+                  ECR Coin Price ($)
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  inputProps={{ step: "0.0001" }}
+                  value={settings.ecrPrice}
+                  onChange={(e) => handleSettingChange("ecrPrice", e.target.value)}
+                  placeholder="0.10"
                 />
               </Box>
             </Grid>

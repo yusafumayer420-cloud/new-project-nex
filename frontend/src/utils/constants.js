@@ -32,6 +32,7 @@ export const CURRENCIES = [
   { symbol: 'FTM', name: 'Fantom', icon: 'F', color: '#1969FF' },
   { symbol: 'EGLD', name: 'Elrond', icon: 'E', color: '#1D1D2C' },
   { symbol: 'XTZ', name: 'Tezos', icon: 'X', color: '#2C7DF7' },
+  { symbol: 'ECR', name: 'ECR Coin', icon: 'E', color: '#4CAF50' },
 ];
 
 export const TRADING_PAIRS = [
@@ -43,6 +44,7 @@ export const TRADING_PAIRS = [
   { pair: 'DOGE/USDT', price: 0.098, change24h: -0.4, volume: 2442605567 },
   { pair: 'DOT/USDT', price: 6.45, change24h: -0.61, volume: 210974267 },
   { pair: 'LTC/USDT', price: 55.66, change24h: -2.24, volume: 9162235 },
+  { pair: 'ECR/USDT', price: 0.10, change24h: 0.00, volume: 1000000 },
 ];
 
 export const NETWORKS = {
@@ -50,6 +52,7 @@ export const NETWORKS = {
   'ETH': ['ERC20', 'BEP20'],
   'USDT': ['ERC20', 'BEP20', 'BNB'],
   'SOL': ['SOL Network'],
+  'ECR': ['ERC20', 'BEP20'],
 };
 
 export const ORDER_TYPES = ['market', 'limit', 'stop', 'stop_limit'];

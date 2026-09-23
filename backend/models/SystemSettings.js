@@ -17,6 +17,10 @@ const SystemSettingsSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  ecrPrice: {
+    type: Number,
+    default: 0.10
+  },
   updatedAt: {
     type: Date,
     default: Date.now
