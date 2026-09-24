@@ -40,6 +40,12 @@ router.put('/settings', protect, adminAuth, async (req, res) => {
     if (ecrPrice !== undefined) settings.ecrPrice = ecrPrice;
     if (ecrVolume !== undefined) settings.ecrVolume = ecrVolume;
     if (ecrChange !== undefined) settings.ecrChange = ecrChange;
+    
+    // Add new Spot settings mapping
+    if (req.body.spotFee !== undefined) settings.spotFee = req.body.spotFee;
+    if (req.body.spotMinAmount !== undefined) settings.spotMinAmount = req.body.spotMinAmount;
+    if (req.body.spotMaxAmount !== undefined) settings.spotMaxAmount = req.body.spotMaxAmount;
+
     settings.updatedAt = Date.now();
     
     await settings.save();

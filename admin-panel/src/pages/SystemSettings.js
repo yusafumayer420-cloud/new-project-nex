@@ -24,7 +24,10 @@ const SystemSettings = () => {
     btcDominance: '51.2%',
     ecrPrice: '0.10',
     ecrVolume: '1000000.00',
-    ecrChange: '0.00'
+    ecrChange: '0.00',
+    spotFee: 0.1,
+    spotMinAmount: 10,
+    spotMaxAmount: 100000
   });
 
   const [loading, setLoading] = useState(false);
@@ -45,7 +48,10 @@ const SystemSettings = () => {
           btcDominance: response.data.btcDominance || '51.2%',
           ecrPrice: response.data.ecrPrice || 0.10,
           ecrVolume: response.data.ecrVolume || '1000000.00',
-          ecrChange: response.data.ecrChange || '0.00'
+          ecrChange: response.data.ecrChange || '0.00',
+          spotFee: response.data.spotFee ?? 0.1,
+          spotMinAmount: response.data.spotMinAmount ?? 10,
+          spotMaxAmount: response.data.spotMaxAmount ?? 100000
         }));
       }
     } catch (error) {
@@ -65,7 +71,10 @@ const SystemSettings = () => {
         btcDominance: settings.btcDominance,
         ecrPrice: parseFloat(settings.ecrPrice),
         ecrVolume: settings.ecrVolume,
-        ecrChange: settings.ecrChange
+        ecrChange: settings.ecrChange,
+        spotFee: parseFloat(settings.spotFee),
+        spotMinAmount: parseFloat(settings.spotMinAmount),
+        spotMaxAmount: parseFloat(settings.spotMaxAmount)
       });
       toast.success("Market settings saved successfully");
     } catch (error) {
@@ -237,6 +246,57 @@ const SystemSettings = () => {
                 >
                   Save Market Stats
                 </Button>
+              </Box>
+            </Grid>
+          </Grid>
+        </SettingSection>
+
+        <SettingSection title="Spot Trading Settings" icon={<Timeline />}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={4}>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
+                  Spot Trading Fee (%)
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  inputProps={{ step: "0.01" }}
+                  value={settings.spotFee}
+                  onChange={(e) => handleSettingChange("spotFee", e.target.value)}
+                  placeholder="0.1"
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
+                  Spot Min Order Amount (USDT)
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  value={settings.spotMinAmount}
+                  onChange={(e) => handleSettingChange("spotMinAmount", e.target.value)}
+                  placeholder="10"
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
+                  Spot Max Order Amount (USDT)
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  value={settings.spotMaxAmount}
+                  onChange={(e) => handleSettingChange("spotMaxAmount", e.target.value)}
+                  placeholder="100000"
+                />
               </Box>
             </Grid>
           </Grid>

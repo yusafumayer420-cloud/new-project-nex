@@ -29,6 +29,18 @@ const SystemSettingsSchema = new mongoose.Schema({
     type: String,
     default: "0.00"
   },
+  spotFee: {
+    type: Number,
+    default: 0.1
+  },
+  spotMinAmount: {
+    type: Number,
+    default: 10
+  },
+  spotMaxAmount: {
+    type: Number,
+    default: 100000
+  },
   updatedAt: {
     type: Date,
     default: Date.now

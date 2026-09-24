@@ -38,6 +38,14 @@ const TradeSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  filledAmount: {
+    type: Number,
+    default: 0
+  },
+  averagePrice: {
+    type: Number,
+    default: 0
+  },
   status: {
     type: String,
     enum: ['pending', 'completed', 'cancelled', 'closed'],
@@ -72,6 +80,10 @@ const TradeSchema = new mongoose.Schema({
   pnl: {
     type: Number,
     default: null
+  },
+  fee: {
+    type: Number,
+    default: 0
   },
   position: {
     leverage: { type: Number, default: 1 },

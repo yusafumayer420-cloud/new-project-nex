@@ -3,6 +3,8 @@ const { protect: auth } = require('../middleware/authMiddleware');
 const Trade = require('../models/Trade');
 const User = require('../models/User');
 const WalletTransaction = require('../models/WalletTransaction');
+const Match = require('../models/Match');
+const { matchOrder } = require('../utils/engine');
 const router = express.Router();
 
 const SystemSettings = require('../models/SystemSettings');
@@ -235,13 +237,31 @@ router.post('/order', auth, async (req, res) => {
     let user;
 
     const isPerpetual = type === 'long' || type === 'short';
+    const tradeMode = isPerpetual ? 'perpetual' : 'spot';
     const marginRequired = isPerpetual ? total / leverage : total;
+
+    if (tradeMode === 'spot') {
+      const settings = await SystemSettings.findOne();
+      const minAmount = settings?.spotMinAmount || 10;
+      const maxAmount = settings?.spotMaxAmount || 100000;
+      if (total < minAmount) {
+        return res.status(400).json({ message: `Minimum order amount is ${minAmount} USDT.` });
+      }
+      if (total > maxAmount) {
+        return res.status(400).json({ message: `Maximum order amount is ${maxAmount} USDT.` });
+      }
+    }
 
     // Atomic deduction: only subtract if balance is sufficient
     if (isPerpetual || type === 'buy') {
+      const deductionAmount = isPerpetual ? marginRequired : total;
+      const updateOp = isPerpetual 
+        ? { $inc: { 'wallet.usdt': -marginRequired } }
+        : { $inc: { 'wallet.usdt': -total, 'lockedWallet.usdt': total } };
+
       user = await User.findOneAndUpdate(
-        { _id: req.user.id, 'wallet.usdt': { $gte: marginRequired } },
-        { $inc: { 'wallet.usdt': -marginRequired } },
+        { _id: req.user.id, 'wallet.usdt': { $gte: deductionAmount } },
+        updateOp,
         { new: true }
       );
       if (!user) {
@@ -252,6 +272,7 @@ router.post('/order', auth, async (req, res) => {
       const amountNum = parseFloat(amount);
       const updateObj = { $inc: {} };
       updateObj.$inc[`wallet.${currency}`] = -amountNum;
+      updateObj.$inc[`lockedWallet.${currency}`] = amountNum;
 
       const queryObj = { _id: req.user.id };
       queryObj[`wallet.${currency}`] = { $gte: amountNum };
@@ -262,9 +283,7 @@ router.post('/order', auth, async (req, res) => {
       }
     }
 
-    // Market orders are filled immediately; limit orders stay pending
-    const tradeStatus = orderType === 'market' ? 'completed' : 'pending';
-    const tradeMode = isPerpetual ? 'perpetual' : 'spot';
+    const tradeStatus = isPerpetual && orderType === 'market' ? 'completed' : 'pending';
 
     // Create trade
     const trade = new Trade({
@@ -282,20 +301,9 @@ router.post('/order', auth, async (req, res) => {
 
     await trade.save();
 
-    // For completed market orders: update trading stats atomically and credit assets
-    if (tradeStatus === 'completed') {
+    // For completed perpetual market orders: update trading stats
+    if (tradeStatus === 'completed' && isPerpetual) {
       const incUpdate = { 'tradingStats.totalTrades': 1 };
-      
-      // If it's a spot trade, credit the receiving asset to the wallet
-      if (!isPerpetual) {
-        if (type === 'buy') {
-          const currency = pair.split('/')[0].toLowerCase();
-          incUpdate[`wallet.${currency}`] = parseFloat(amount);
-        } else if (type === 'sell') {
-          incUpdate['wallet.usdt'] = total;
-        }
-      }
-
       user = await User.findByIdAndUpdate(
         req.user.id, 
         { $inc: incUpdate },
@@ -303,8 +311,8 @@ router.post('/order', auth, async (req, res) => {
       );
     }
 
-    // Create a wallet transaction record for completed trades
-    if (tradeStatus === 'completed') {
+    // Create a wallet transaction record for completed trades (perpetual)
+    if (tradeStatus === 'completed' && isPerpetual) {
       await WalletTransaction.create({
         userId: req.user.id,
         type: 'trade',
@@ -321,12 +329,18 @@ router.post('/order', auth, async (req, res) => {
 
     // Emit socket events
     const io = req.app.get('io');
+    
+    // Attempt matching for spot orders
+    if (tradeMode === 'spot') {
+      matchOrder(trade, io).catch(console.error);
+    }
+
     if (io) {
       const populatedTrade = await Trade.findById(trade._id).populate('userId', 'email fullName profilePicture');
       io.to('admin').emit('new_trade', populatedTrade);
       io.to(`user_${req.user.id}`).emit('order_placed', {
         title: 'Order Placed',
-        message: `${pair} ${type} order for ${amount} placed successfully`,
+        message: `${pair} ${type} order placed successfully`,
         type: 'success',
         trade: populatedTrade
       });
@@ -334,7 +348,7 @@ router.post('/order', auth, async (req, res) => {
         io.to('admin').emit('trade_updated', populatedTrade);
         io.to(`user_${req.user.id}`).emit('trade_updated', populatedTrade);
       }
-      io.to(`user_${req.user.id}`).emit('balance_updated', { wallet: user.wallet });
+      io.to(`user_${req.user.id}`).emit('balance_updated', { wallet: user.wallet, lockedWallet: user.lockedWallet });
     }
 
     res.json({ message: 'Order placed successfully', trade });
@@ -348,7 +362,10 @@ router.get('/my-trades', auth, async (req, res) => {
   try {
     const trades = await Trade.find({ userId: req.user.id, tradeMode: { $ne: 'delivery' } }).sort({ createdAt: -1 });
 
-    const positions = trades.filter(t => t.status === 'completed');
+    const positions = trades.filter(t => {
+      if (t.tradeMode === 'spot') return t.status === 'completed' || t.status === 'cancelled';
+      return t.status === 'completed';
+    });
     const openOrders = trades.filter(t => t.status === 'pending');
     const closedPositions = trades.filter(t => t.status === 'closed');
 
@@ -380,16 +397,19 @@ router.post('/order/:id/cancel', auth, async (req, res) => {
         { new: true }
       );
     } else {
+      const unfilledAmount = order.amount - (order.filledAmount || 0);
       if (order.type === 'buy') {
+        const unfilledCost = unfilledAmount * order.price;
         updatedUser = await User.findByIdAndUpdate(
           req.user.id,
-          { $inc: { 'wallet.usdt': order.total } },
+          { $inc: { 'wallet.usdt': unfilledCost, 'lockedWallet.usdt': -unfilledCost } },
           { new: true }
         );
       } else if (order.type === 'sell') {
         const currency = order.pair.split('/')[0].toLowerCase();
         const updateObj = { $inc: {} };
-        updateObj.$inc[`wallet.${currency}`] = order.amount;
+        updateObj.$inc[`wallet.${currency}`] = unfilledAmount;
+        updateObj.$inc[`lockedWallet.${currency}`] = -unfilledAmount;
         updatedUser = await User.findByIdAndUpdate(req.user.id, updateObj, { new: true });
       }
     }
@@ -403,8 +423,11 @@ router.post('/order/:id/cancel', auth, async (req, res) => {
       io.to('admin').emit('trade_updated', populated);
       io.to(`user_${req.user.id}`).emit('trade_updated', populated);
       if (updatedUser) {
-        io.to(`user_${req.user.id}`).emit('balance_updated', { wallet: updatedUser.wallet });
+        io.to(`user_${req.user.id}`).emit('balance_updated', { wallet: updatedUser.wallet, lockedWallet: updatedUser.lockedWallet });
       }
+      
+      const { generateAndEmitOrderBook } = require('../utils/engine');
+      generateAndEmitOrderBook(order.pair, io);
     }
 
     res.json({ message: 'Order cancelled' });
@@ -515,21 +538,30 @@ router.put('/order/:id/status', auth, async (req, res) => {
           const margin = trade.total / (trade.position.leverage || 1);
           user.wallet.usdt += margin;
         } else {
+          const unfilledAmount = trade.amount - (trade.filledAmount || 0);
           if (trade.type === 'buy') {
-            user.wallet.usdt += trade.total;
+            const unfilledCost = unfilledAmount * trade.price;
+            user.wallet.usdt += unfilledCost;
+            if (user.lockedWallet && user.lockedWallet.usdt !== undefined) {
+              user.lockedWallet.usdt -= unfilledCost;
+            }
           } else if (trade.type === 'sell') {
             const currency = trade.pair.split('/')[0].toLowerCase();
             if (user.wallet[currency] !== undefined) {
-              user.wallet[currency] += trade.amount;
+              user.wallet[currency] += unfilledAmount;
+              if (user.lockedWallet && user.lockedWallet[currency] !== undefined) {
+                user.lockedWallet[currency] -= unfilledAmount;
+              }
             }
           }
         }
         user.markModified('wallet');
+        user.markModified('lockedWallet');
         await user.save();
         
         const io = req.app.get('io');
         if (io) {
-          io.to(`user_${user._id}`).emit('balance_updated', { wallet: user.wallet });
+          io.to(`user_${user._id}`).emit('balance_updated', { wallet: user.wallet, lockedWallet: user.lockedWallet });
         }
       }
     }
@@ -603,10 +635,45 @@ router.put('/order/:id/outcome', auth, async (req, res) => {
       const populated = await trade.populate('userId', 'email fullName profilePicture');
       io.to('admin').emit('trade_updated', populated);
       io.to(`user_${trade.userId}`).emit('trade_updated', populated);
-      io.to(`user_${trade.userId}`).emit('balance_updated', { wallet: user.wallet });
+      io.to(`user_${trade.userId}`).emit('balance_updated', { wallet: user.wallet, lockedWallet: user.lockedWallet });
     }
 
     res.json({ message: `Trade outcome updated to ${outcome}`, trade });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get order book
+router.get('/orderbook/:pair', async (req, res) => {
+  try {
+    const pair = req.params.pair.replace('_', '/').toUpperCase();
+    const asks = await Trade.aggregate([
+      { $match: { pair, tradeMode: 'spot', type: 'sell', status: 'pending' } },
+      { $group: { _id: "$price", total: { $sum: { $subtract: ["$amount", "$filledAmount"] } } } },
+      { $sort: { _id: 1 } },
+      { $limit: 20 }
+    ]);
+    const bids = await Trade.aggregate([
+      { $match: { pair, tradeMode: 'spot', type: 'buy', status: 'pending' } },
+      { $group: { _id: "$price", total: { $sum: { $subtract: ["$amount", "$filledAmount"] } } } },
+      { $sort: { _id: -1 } },
+      { $limit: 20 }
+    ]);
+    res.json({ asks: asks.reverse(), bids });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get recent trades (matches)
+router.get('/matches/:pair', async (req, res) => {
+  try {
+    const pair = req.params.pair.replace('_', '/').toUpperCase();
+    const matches = await Match.find({ pair })
+      .sort({ createdAt: -1 })
+      .limit(50);
+    res.json(matches);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

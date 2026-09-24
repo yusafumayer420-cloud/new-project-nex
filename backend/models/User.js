@@ -77,6 +77,42 @@ const UserSchema = new mongoose.Schema({
     }, { _id: false, strict: false }),
     default: () => ({ usdt: 0, btc: 0, eth: 0, sol: 0, xrp: 0, ada: 0, doge: 0, dot: 0, ltc: 0, bnb: 0, matic: 0, avax: 0, link: 0, shib: 0, trx: 0, uni: 0, atom: 0, xlm: 0, etc: 0, fil: 0, near: 0, algo: 0, vet: 0, icp: 0, mana: 0, sand: 0, axs: 0, theta: 0, ftm: 0, egld: 0, xtz: 0 })
   },
+  lockedWallet: {
+    type: new mongoose.Schema({
+      usdt: { type: Number, default: 0 },
+      btc: { type: Number, default: 0 },
+      eth: { type: Number, default: 0 },
+      sol: { type: Number, default: 0 },
+      xrp: { type: Number, default: 0 },
+      ada: { type: Number, default: 0 },
+      doge: { type: Number, default: 0 },
+      dot: { type: Number, default: 0 },
+      ltc: { type: Number, default: 0 },
+      bnb: { type: Number, default: 0 },
+      matic: { type: Number, default: 0 },
+      avax: { type: Number, default: 0 },
+      link: { type: Number, default: 0 },
+      shib: { type: Number, default: 0 },
+      trx: { type: Number, default: 0 },
+      uni: { type: Number, default: 0 },
+      atom: { type: Number, default: 0 },
+      xlm: { type: Number, default: 0 },
+      etc: { type: Number, default: 0 },
+      fil: { type: Number, default: 0 },
+      near: { type: Number, default: 0 },
+      algo: { type: Number, default: 0 },
+      vet: { type: Number, default: 0 },
+      icp: { type: Number, default: 0 },
+      mana: { type: Number, default: 0 },
+      sand: { type: Number, default: 0 },
+      axs: { type: Number, default: 0 },
+      theta: { type: Number, default: 0 },
+      ftm: { type: Number, default: 0 },
+      egld: { type: Number, default: 0 },
+      xtz: { type: Number, default: 0 }
+    }, { _id: false, strict: false }),
+    default: () => ({ usdt: 0, btc: 0, eth: 0, sol: 0, xrp: 0, ada: 0, doge: 0, dot: 0, ltc: 0, bnb: 0, matic: 0, avax: 0, link: 0, shib: 0, trx: 0, uni: 0, atom: 0, xlm: 0, etc: 0, fil: 0, near: 0, algo: 0, vet: 0, icp: 0, mana: 0, sand: 0, axs: 0, theta: 0, ftm: 0, egld: 0, xtz: 0 })
+  },
   addresses: {
     usdt: String
   },

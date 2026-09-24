@@ -654,6 +654,11 @@ const TradingManagement = () => {
                         <Typography variant="body2">
                           {trade.amount}
                         </Typography>
+                        {trade.tradeMode === 'spot' && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Filled: {trade.filledAmount || 0}
+                          </Typography>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Typography

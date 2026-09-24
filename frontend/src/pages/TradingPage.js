@@ -120,8 +120,8 @@ const CountdownTimer = ({ expiresAt, onExpired }) => {
 const DeliveryOrderBook = ({ orderBook, price }) => {
   // Calculate max amount for depth bars
   const maxAmount = Math.max(
-    ...orderBook.asks.map(a => a.amount),
-    ...orderBook.bids.map(b => b.amount),
+    ...orderBook.asks.map(a => a.total || a.amount || 0),
+    ...orderBook.bids.map(b => b.total || b.amount || 0),
     1
   );
 
@@ -139,16 +139,16 @@ const DeliveryOrderBook = ({ orderBook, price }) => {
           <Box key={i} sx={{ position: 'relative', display: 'flex', justifyContent: 'space-between', px: 1, py: '2px', cursor: 'pointer' }}>
             <Box sx={{
               position: 'absolute', right: 0, top: 0, bottom: 0,
-              width: `${(ask.amount / maxAmount) * 100}%`,
+              width: `${((ask.total || ask.amount) / maxAmount) * 100}%`,
               bgcolor: 'rgba(255, 51, 102, 0.15)',
               zIndex: 0,
               transition: 'width 0.3s'
             }} />
             <Typography variant="caption" sx={{ color: '#FF3366', fontWeight: 'bold', zIndex: 1, fontSize: '0.75rem' }}>
-              {ask.price.toFixed(2)}
+              {Number(ask._id || ask.price).toFixed(2)}
             </Typography>
             <Typography variant="caption" sx={{ color: '#fff', zIndex: 1, fontSize: '0.75rem' }}>
-              {ask.amount.toFixed(2)}
+              {Number(ask.total || ask.amount).toFixed(2)}
             </Typography>
           </Box>
         ))}
@@ -170,16 +170,16 @@ const DeliveryOrderBook = ({ orderBook, price }) => {
           <Box key={i} sx={{ position: 'relative', display: 'flex', justifyContent: 'space-between', px: 1, py: '2px', cursor: 'pointer' }}>
             <Box sx={{
               position: 'absolute', right: 0, top: 0, bottom: 0,
-              width: `${(bid.amount / maxAmount) * 100}%`,
+              width: `${((bid.total || bid.amount) / maxAmount) * 100}%`,
               bgcolor: 'rgba(59, 130, 246, 0.15)',
               zIndex: 0,
               transition: 'width 0.3s'
             }} />
             <Typography variant="caption" sx={{ color: '#3B82F6', fontWeight: 'bold', zIndex: 1, fontSize: '0.75rem' }}>
-              {bid.price.toFixed(2)}
+              {Number(bid._id || bid.price).toFixed(2)}
             </Typography>
             <Typography variant="caption" sx={{ color: '#fff', zIndex: 1, fontSize: '0.75rem' }}>
-              {bid.amount.toFixed(2)}
+              {Number(bid.total || bid.amount).toFixed(2)}
             </Typography>
           </Box>
         ))}
@@ -602,12 +602,14 @@ const TradingPage = ({ socket }) => {
 
   const currentPair = (pair && pair !== 'delivery' && pair !== 'perpetual') ? pair.replace(/[-_]/g, '/') : 'BTC/USDT';
 
-  const [activeTab, setActiveTab] = useState(pair === 'delivery' ? 1 : 0);
+  const [activeTab, setActiveTab] = useState(pair === 'delivery' ? 2 : pair === 'perpetual' ? 1 : 0);
 
   useEffect(() => {
     if (pair === 'delivery') {
+      setActiveTab(2);
+    } else if (pair === 'perpetual') {
       setActiveTab(1);
-    } else if (pair === 'perpetual' || pair === 'BTC-USDT') {
+    } else {
       setActiveTab(0);
     }
   }, [pair]);
@@ -622,26 +624,8 @@ const TradingPage = ({ socket }) => {
   const [amount, setAmount] = useState('');
   const [price, setPrice] = useState(70587.31);
   const [leverage, setLeverage] = useState(1);
-  const [orderBook, setOrderBook] = useState({
-    bids: [
-      { price: 70568.87, amount: 1.68 },
-      { price: 70566.57, amount: 0.78 },
-      { price: 70564.81, amount: 2.33 },
-      { price: 70562.15, amount: 5.12 },
-      { price: 70558.42, amount: 1.05 },
-      { price: 70551.11, amount: 8.44 },
-      { price: 70545.99, amount: 3.21 },
-    ],
-    asks: [
-      { price: 70562.91, amount: 0.76 },
-      { price: 70562.85, amount: 16.36 },
-      { price: 70562.82, amount: 7.83 },
-      { price: 70563.15, amount: 2.45 },
-      { price: 70565.44, amount: 11.21 },
-      { price: 70568.12, amount: 4.88 },
-      { price: 70572.55, amount: 1.15 },
-    ],
-  });
+  const [orderBook, setOrderBook] = useState({ bids: [], asks: [] });
+  const [recentTrades, setRecentTrades] = useState([]);
 
   const [positions, setPositions] = useState([]);
   const [openOrders, setOpenOrders] = useState([]);
@@ -665,9 +649,25 @@ const TradingPage = ({ socket }) => {
 
   // Trades are fetched on mount
 
+  const fetchOrderBookAndTrades = useCallback(async () => {
+    try {
+      const obRes = await axios.get(`/api/trading/orderbook/${currentPair.replace('/', '_')}`);
+      setOrderBook(obRes.data);
+      const rtRes = await axios.get(`/api/trading/matches/${currentPair.replace('/', '_')}`);
+      setRecentTrades(rtRes.data);
+    } catch (err) {}
+  }, [currentPair]);
+
+  const [realOrderBook, setRealOrderBook] = useState({ bids: [], asks: [] });
+  const realOrderBookRef = useRef({ bids: [], asks: [] });
+
+  useEffect(() => {
+    realOrderBookRef.current = realOrderBook;
+  }, [realOrderBook]);
+
   useEffect(() => {
     fetchMyTrades();
-    // fetchWalletBalance(); // Removed redundant call
+    fetchOrderBookAndTrades();
 
     const handlePriceUpdate = (prices) => {
       setLivePrices(prev => {
@@ -682,25 +682,24 @@ const TradingPage = ({ socket }) => {
       if (btcPrice) {
         const livePrice = parseFloat(btcPrice.price);
         setPrice(livePrice);
+
+        // Generate fake market depth based on live price
+        const generateFakeLevels = (basePrice, isAsk) => {
+          return Array.from({ length: 15 }).map((_, i) => {
+            const spread = basePrice * (0.0005 * (i + 1));
+            return {
+              _id: isAsk ? basePrice + spread : basePrice - spread,
+              total: parseFloat((Math.random() * (i + 1)).toFixed(4))
+            };
+          });
+        };
+
+        const fakeBids = generateFakeLevels(livePrice, false);
+        const fakeAsks = generateFakeLevels(livePrice, true).reverse();
+
         setOrderBook({
-          bids: [
-            { price: livePrice - 2, amount: parseFloat((Math.random() * 2).toFixed(4)) },
-            { price: livePrice - 5, amount: parseFloat((Math.random() * 5).toFixed(4)) },
-            { price: livePrice - 10, amount: parseFloat((Math.random() * 10).toFixed(4)) },
-            { price: livePrice - 15, amount: parseFloat((Math.random() * 4).toFixed(4)) },
-            { price: livePrice - 22, amount: parseFloat((Math.random() * 8).toFixed(4)) },
-            { price: livePrice - 30, amount: parseFloat((Math.random() * 6).toFixed(4)) },
-            { price: livePrice - 45, amount: parseFloat((Math.random() * 12).toFixed(4)) },
-          ],
-          asks: [
-            { price: livePrice + 2, amount: parseFloat((Math.random() * 2).toFixed(4)) },
-            { price: livePrice + 5, amount: parseFloat((Math.random() * 5).toFixed(4)) },
-            { price: livePrice + 10, amount: parseFloat((Math.random() * 10).toFixed(4)) },
-            { price: livePrice + 16, amount: parseFloat((Math.random() * 3).toFixed(4)) },
-            { price: livePrice + 24, amount: parseFloat((Math.random() * 7).toFixed(4)) },
-            { price: livePrice + 32, amount: parseFloat((Math.random() * 5).toFixed(4)) },
-            { price: livePrice + 48, amount: parseFloat((Math.random() * 9).toFixed(4)) },
-          ]
+          bids: realOrderBookRef.current.bids.length > 0 ? realOrderBookRef.current.bids : fakeBids,
+          asks: realOrderBookRef.current.asks.length > 0 ? realOrderBookRef.current.asks : fakeAsks
         });
       }
     };
@@ -709,18 +708,37 @@ const TradingPage = ({ socket }) => {
       if (updatedTrade.tradeMode !== 'delivery' &&
         (updatedTrade.userId === user?._id || updatedTrade.userId?._id === user?._id)) {
         fetchMyTrades();
-        toast.success(`Trade ${updatedTrade.status}`);
+        if (updatedTrade.status === 'cancelled' && updatedTrade.orderType === 'market') {
+          toast.error('Market order cancelled (No liquidity)');
+        } else if (updatedTrade.status === 'completed') {
+          toast.success('Trade executed!');
+        }
       }
+    };
+
+    const handleOrderBookUpdate = (data) => {
+      setRealOrderBook(data);
+      if (data.bids.length > 0 || data.asks.length > 0) {
+        setOrderBook(data);
+      }
+    };
+
+    const handleRecentTradesUpdate = (newTrades) => {
+      setRecentTrades(prev => [...newTrades, ...prev].slice(0, 50));
     };
 
     socket.on('priceUpdate', handlePriceUpdate);
     socket.on('trade_updated', handleTradeUpdate);
+    socket.on(`orderbook_${currentPair}`, handleOrderBookUpdate);
+    socket.on(`recent_trades_${currentPair}`, handleRecentTradesUpdate);
 
     return () => {
       socket.off('priceUpdate', handlePriceUpdate);
       socket.off('trade_updated', handleTradeUpdate);
+      socket.off(`orderbook_${currentPair}`, handleOrderBookUpdate);
+      socket.off(`recent_trades_${currentPair}`, handleRecentTradesUpdate);
     };
-  }, [socket, user, currentPair]);
+  }, [socket, user, currentPair, fetchOrderBookAndTrades]);
 
 
   const handlePlaceOrder = async () => {
@@ -731,11 +749,11 @@ const TradingPage = ({ socket }) => {
     try {
       await axios.post('/api/trading/order', {
         pair: currentPair,
-        type: side === 'buy' ? 'long' : 'short',
+        type: activeTab === 0 ? side : (side === 'buy' ? 'long' : 'short'),
         orderType,
         price: parseFloat(price),
         amount: parseFloat(amount),
-        leverage: leverage
+        leverage: activeTab === 1 ? leverage : 1
       });
 
       toast.success(`${side === 'buy' ? 'Buy' : 'Sell'} order placed!`);
@@ -872,6 +890,7 @@ const TradingPage = ({ socket }) => {
             '& .MuiTabs-indicator': { height: 3, borderRadius: 2 },
           }}
         >
+          <Tab label="Spot" icon={<ShowChart />} iconPosition="start" />
           <Tab label="Perpetual" icon={<Timeline />} iconPosition="start" />
           <Tab
             label="Delivery contract"
@@ -890,7 +909,7 @@ const TradingPage = ({ socket }) => {
       {/* ------------------------------------------------------------------ */}
       {/* DELIVERY CONTRACT TAB                                               */}
       {/* ------------------------------------------------------------------ */}
-      {activeTab === 1 && (
+      {activeTab === 2 && (
         <DeliveryTab
           price={price}
           socket={socket}
@@ -901,9 +920,9 @@ const TradingPage = ({ socket }) => {
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* PERPETUAL TAB                                                       */}
+      {/* SPOT & PERPETUAL TABS                                               */}
       {/* ------------------------------------------------------------------ */}
-      {activeTab === 0 && (
+      {(activeTab === 0 || activeTab === 1) && (
         <>
           <Grid container spacing={1}>
             {/* Order Form */}
@@ -916,17 +935,17 @@ const TradingPage = ({ socket }) => {
                       fullWidth variant={side === 'buy' ? 'contained' : 'outlined'}
                       sx={{ mr: 1, bgcolor: side === 'buy' ? '#3B82F6' : 'transparent', borderColor: '#3B82F6', color: side === 'buy' ? 'white' : '#3B82F6', fontWeight: 'bold' }}
                       onClick={() => setSide('buy')}
-                    >Buy/Long</Button>
+                    >{activeTab === 0 ? 'Buy' : 'Buy/Long'}</Button>
                     <Button
                       fullWidth variant={side === 'sell' ? 'contained' : 'outlined'}
                       sx={{ bgcolor: side === 'sell' ? '#FF3366' : 'transparent', borderColor: '#FF3366', color: side === 'sell' ? 'white' : '#FF3366', fontWeight: 'bold' }}
                       onClick={() => setSide('sell')}
-                    >Sell/Short</Button>
+                    >{activeTab === 0 ? 'Sell' : 'Sell/Short'}</Button>
                   </Box>
 
                   {/* Order Type */}
                   <Box sx={{ display: 'flex', mb: 2 }}>
-                    {['market'].map(type => (
+                    {['market', 'limit'].map(type => (
                       <Chip
                         key={type} label={type.charAt(0).toUpperCase() + type.slice(1)}
                         onClick={() => setOrderType(type)}
@@ -937,13 +956,15 @@ const TradingPage = ({ socket }) => {
                     ))}
                   </Box>
 
-                  {/* Leverage */}
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 1 }}>Leverage: {leverage}x</Typography>
-                    <Slider value={leverage} onChange={(e, v) => setLeverage(v)} min={1} max={100}
-                      marks={[{ value: 1, label: '1x' }, { value: 25, label: '25x' }, { value: 50, label: '50x' }, { value: 100, label: '100x' }]}
-                    />
-                  </Box>
+                  {/* Leverage (Only for Perpetual) */}
+                  {activeTab === 1 && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" sx={{ mb: 1 }}>Leverage: {leverage}x</Typography>
+                      <Slider value={leverage} onChange={(e, v) => setLeverage(v)} min={1} max={100}
+                        marks={[{ value: 1, label: '1x' }, { value: 25, label: '25x' }, { value: 50, label: '50x' }, { value: 100, label: '100x' }]}
+                      />
+                    </Box>
+                  )}
 
                   {/* Price Input */}
                   {orderType === 'limit' && (
@@ -955,7 +976,7 @@ const TradingPage = ({ socket }) => {
                   {/* Amount Input */}
                   <TextField
                     id="order-amount" name="orderAmount" autoComplete="off"
-                    fullWidth label={`Amount (${side === 'buy' ? 'BTC' : 'USDT'})`} type="number"
+                    fullWidth label={`Amount (${currentPair.split('/')[0]})`} type="number"
                     value={amount} onChange={(e) => setAmount(e.target.value)} sx={{ mb: 1 }} size="small"
                   />
 
@@ -991,12 +1012,14 @@ const TradingPage = ({ socket }) => {
                   <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold', fontSize: '0.8rem' }}>Order Book</Typography>
 
                   {/* Asks */}
-                  {orderBook.asks.map((ask, index) => (
+                  {orderBook.asks.slice(-7).map((ask, index) => {
+                    const askPrice = parseFloat(ask._id || ask.price);
+                    return (
                     <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5, p: 0.5, bgcolor: 'rgba(255,51,102,0.1)', borderRadius: 1 }}>
-                      <Typography variant="caption" color="#FF3366">{parseFloat(ask.price).toFixed(0)}</Typography>
-                      <Typography variant="caption">{ask.amount.toFixed(2)}</Typography>
+                      <Typography variant="caption" color="#FF3366">{askPrice.toFixed(price < 10 ? 4 : price < 1000 ? 2 : 0)}</Typography>
+                      <Typography variant="caption">{Number(ask.total || ask.amount).toFixed(2)}</Typography>
                     </Box>
-                  ))}
+                  )})}
 
                   {/* Mid Price */}
                   <Box sx={{ textAlign: 'center', my: 1, py: 0.5, borderY: '1px solid rgba(255,255,255,0.1)' }}>
@@ -1004,12 +1027,14 @@ const TradingPage = ({ socket }) => {
                   </Box>
 
                   {/* Bids */}
-                  {orderBook.bids.map((bid, index) => (
+                  {orderBook.bids.slice(0, 7).map((bid, index) => {
+                    const bidPrice = parseFloat(bid._id || bid.price);
+                    return (
                     <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5, p: 0.5, bgcolor: 'rgba(59, 130, 246,0.1)', borderRadius: 1 }}>
-                      <Typography variant="caption" color="#3B82F6">{parseFloat(bid.price).toFixed(0)}</Typography>
-                      <Typography variant="caption">{bid.amount.toFixed(2)}</Typography>
+                      <Typography variant="caption" color="#3B82F6">{bidPrice.toFixed(price < 10 ? 4 : price < 1000 ? 2 : 0)}</Typography>
+                      <Typography variant="caption">{Number(bid.total || bid.amount).toFixed(2)}</Typography>
                     </Box>
-                  ))}
+                  )})}
                 </CardContent>
               </Card>
             </Grid>
@@ -1017,168 +1042,192 @@ const TradingPage = ({ socket }) => {
 
           {/* Positions & Open Orders */}
           <Box sx={{ mt: 2 }}>
-            <Tabs value={positionsTab} onChange={(e, v) => setPositionsTab(v)} variant="fullWidth" sx={{ mb: 1 }}>
-              <Tab label={`Positions (${positions.length})`} />
-              <Tab label={`Open Orders (${openOrders.length})`} />
-              <Tab label={`Closed (${closedPositions.length})`} />
-            </Tabs>
+            {(() => {
+              const filteredPositions = positions.filter(p => p.tradeMode === (activeTab === 0 ? 'spot' : 'perpetual'));
+              const filteredOpenOrders = openOrders.filter(o => o.tradeMode === (activeTab === 0 ? 'spot' : 'perpetual'));
+              const filteredClosed = closedPositions.filter(c => c.tradeMode === (activeTab === 0 ? 'spot' : 'perpetual'));
+              
+              return (
+                <>
+                  <Tabs value={positionsTab} onChange={(e, v) => setPositionsTab(v)} variant="fullWidth" sx={{ mb: 1 }}>
+                    <Tab label={activeTab === 0 ? `Trade History (${filteredPositions.length})` : `Positions (${filteredPositions.length})`} />
+                    <Tab label={`Open Orders (${filteredOpenOrders.length})`} />
+                    {activeTab === 1 && <Tab label={`Closed (${filteredClosed.length})`} />}
+                  </Tabs>
 
-            {positionsTab === 0 && (
-              <Card>
-                {positions.length === 0 ? (
-                  <CardContent sx={{ textAlign: 'center', py: 4 }}>
-                    <Typography color="text.secondary">No completed positions yet</Typography>
-                    <Typography variant="caption" color="text.secondary">Place a market order to open a position</Typography>
-                  </CardContent>
-                ) : (
-                  <TableContainer sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
-                    <Table size="small" sx={{ '& .MuiTableCell-root': { px: {xs: 0.5, sm: 1}, whiteSpace: 'nowrap' } }}>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Pair</TableCell>
-                          <TableCell>Type</TableCell>
-                          <TableCell>Amount</TableCell>
-                          <TableCell>Total</TableCell>
-                          <TableCell>PnL</TableCell>
-                          <TableCell>Action</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {positions.map((pos) => {
-                          const currentP = livePrices[pos.pair] || pos.price;
-                          let pnl = 0;
-                          if (pos.type === 'long') pnl = (currentP - pos.price) * pos.amount;
-                          if (pos.type === 'short') pnl = (pos.price - currentP) * pos.amount;
+                  {positionsTab === 0 && (
+                    <Card>
+                      {filteredPositions.length === 0 ? (
+                        <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                          <Typography color="text.secondary">{activeTab === 0 ? 'No completed trades yet' : 'No completed positions yet'}</Typography>
+                          <Typography variant="caption" color="text.secondary">Place an order to see it here</Typography>
+                        </CardContent>
+                      ) : (
+                        <TableContainer sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+                          <Table size="small" sx={{ '& .MuiTableCell-root': { px: {xs: 0.5, sm: 1}, whiteSpace: 'nowrap' } }}>
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Pair</TableCell>
+                                <TableCell>Type</TableCell>
+                                <TableCell>Amount</TableCell>
+                                <TableCell>{activeTab === 0 ? 'Price' : 'Total'}</TableCell>
+                                {activeTab === 0 && <TableCell>Status</TableCell>}
+                                {activeTab === 1 && <TableCell>PnL</TableCell>}
+                                {activeTab === 1 && <TableCell>Action</TableCell>}
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {filteredPositions.map((pos) => {
+                                const currentP = livePrices[pos.pair] || pos.price;
+                                let pnl = 0;
+                                if (pos.type === 'long') pnl = (currentP - pos.price) * pos.amount;
+                                if (pos.type === 'short') pnl = (pos.price - currentP) * pos.amount;
 
-                          return (
-                          <TableRow key={pos._id}>
-                            <TableCell><Typography variant="caption" sx={{ fontWeight: 'bold' }}>{pos.pair}</Typography></TableCell>
-                            <TableCell>
-                              <Chip label={pos.type.toUpperCase()} size="small"
-                                sx={{ fontSize: '0.65rem', bgcolor: (pos.type === 'long' || pos.type === 'buy') ? 'rgba(59, 130, 246,0.15)' : 'rgba(255,51,102,0.15)', color: (pos.type === 'long' || pos.type === 'buy') ? '#3B82F6' : '#FF3366' }}
-                              />
-                            </TableCell>
-                            <TableCell><Typography variant="caption">{pos.amount}</Typography></TableCell>
-                            <TableCell><Typography variant="caption">${pos.total.toLocaleString()}</Typography></TableCell>
-                            <TableCell>
-                              <Typography variant="caption" color={pnl >= 0 ? '#3B82F6' : '#FF3366'}>
-                                {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Button size="small" variant="outlined" color="error" 
-                                onClick={() => handleClosePosition(pos)} 
-                                disabled={closingId === pos._id}
-                                sx={{ py: 0, px: 1, minWidth: 0, fontSize: '0.65rem' }}
-                              >
-                                {closingId === pos._id ? <CircularProgress size={10} color="inherit" /> : 'Close'}
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
-              </Card>
-            )}
+                                return (
+                                <TableRow key={pos._id}>
+                                  <TableCell><Typography variant="caption" sx={{ fontWeight: 'bold' }}>{pos.pair}</Typography></TableCell>
+                                  <TableCell>
+                                    <Chip label={pos.type.toUpperCase()} size="small"
+                                      sx={{ fontSize: '0.65rem', bgcolor: (pos.type === 'long' || pos.type === 'buy') ? 'rgba(59, 130, 246,0.15)' : 'rgba(255,51,102,0.15)', color: (pos.type === 'long' || pos.type === 'buy') ? '#3B82F6' : '#FF3366' }}
+                                    />
+                                  </TableCell>
+                                  <TableCell><Typography variant="caption">{pos.amount}</Typography></TableCell>
+                                  <TableCell><Typography variant="caption">${(activeTab === 0 ? pos.averagePrice || pos.price : pos.total).toLocaleString()}</Typography></TableCell>
+                                  {activeTab === 0 && (
+                                    <TableCell>
+                                      <Typography variant="caption" color={pos.status === 'completed' ? '#10B981' : '#EF4444'}>
+                                        {pos.status.charAt(0).toUpperCase() + pos.status.slice(1)}
+                                      </Typography>
+                                    </TableCell>
+                                  )}
+                                  {activeTab === 1 && (
+                                    <TableCell>
+                                      <Typography variant="caption" color={pnl >= 0 ? '#3B82F6' : '#FF3366'}>
+                                        {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
+                                      </Typography>
+                                    </TableCell>
+                                  )}
+                                  {activeTab === 1 && (
+                                    <TableCell>
+                                      <Button size="small" variant="outlined" color="error" 
+                                        onClick={() => handleClosePosition(pos)} 
+                                        disabled={closingId === pos._id}
+                                        sx={{ py: 0, px: 1, minWidth: 0, fontSize: '0.65rem' }}
+                                      >
+                                        {closingId === pos._id ? <CircularProgress size={10} color="inherit" /> : 'Close'}
+                                      </Button>
+                                    </TableCell>
+                                  )}
+                                </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      )}
+                    </Card>
+                  )}
 
-            {positionsTab === 2 && (
-              <Card>
-                {closedPositions.length === 0 ? (
-                  <CardContent sx={{ textAlign: 'center', py: 4 }}>
-                    <Typography color="text.secondary">No closed positions</Typography>
-                  </CardContent>
-                ) : (
-                  <TableContainer sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
-                    <Table size="small" sx={{ '& .MuiTableCell-root': { px: {xs: 0.5, sm: 1}, whiteSpace: 'nowrap' } }}>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Pair</TableCell>
-                          <TableCell>Type</TableCell>
-                          <TableCell>Amount</TableCell>
-                          <TableCell>Entry</TableCell>
-                          <TableCell>Close</TableCell>
-                          <TableCell>PnL</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {closedPositions.map((pos) => (
-                          <TableRow key={pos._id}>
-                            <TableCell><Typography variant="caption" sx={{ fontWeight: 'bold' }}>{pos.pair}</Typography></TableCell>
-                            <TableCell>
-                              <Chip label={pos.type.toUpperCase()} size="small"
-                                sx={{ fontSize: '0.65rem', bgcolor: (pos.type === 'long' || pos.type === 'buy') ? 'rgba(59, 130, 246,0.15)' : 'rgba(255,51,102,0.15)', color: (pos.type === 'long' || pos.type === 'buy') ? '#3B82F6' : '#FF3366' }}
-                              />
-                            </TableCell>
-                            <TableCell><Typography variant="caption">{pos.amount}</Typography></TableCell>
-                            <TableCell><Typography variant="caption">${pos.price.toLocaleString()}</Typography></TableCell>
-                            <TableCell><Typography variant="caption">${pos.closePrice?.toLocaleString()}</Typography></TableCell>
-                            <TableCell>
-                              <Typography variant="caption" color={pos.pnl >= 0 ? '#3B82F6' : '#FF3366'}>
-                                {pos.pnl >= 0 ? '+' : '-'}${Math.abs(pos.pnl || 0).toFixed(2)}
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
-              </Card>
-            )}
+                  {/* Closed Positions (Perpetual Only) */}
+                  {positionsTab === 2 && activeTab === 1 && (
+                    <Card>
+                      {filteredClosed.length === 0 ? (
+                        <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                          <Typography color="text.secondary">No closed positions</Typography>
+                        </CardContent>
+                      ) : (
+                        <TableContainer sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+                          <Table size="small" sx={{ '& .MuiTableCell-root': { px: {xs: 0.5, sm: 1}, whiteSpace: 'nowrap' } }}>
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Pair</TableCell>
+                                <TableCell>Type</TableCell>
+                                <TableCell>Amount</TableCell>
+                                <TableCell>Entry</TableCell>
+                                <TableCell>Close</TableCell>
+                                <TableCell>PnL</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {filteredClosed.map((pos) => (
+                                <TableRow key={pos._id}>
+                                  <TableCell><Typography variant="caption" sx={{ fontWeight: 'bold' }}>{pos.pair}</Typography></TableCell>
+                                  <TableCell>
+                                    <Chip label={pos.type.toUpperCase()} size="small"
+                                      sx={{ fontSize: '0.65rem', bgcolor: (pos.type === 'long' || pos.type === 'buy') ? 'rgba(59, 130, 246,0.15)' : 'rgba(255,51,102,0.15)', color: (pos.type === 'long' || pos.type === 'buy') ? '#3B82F6' : '#FF3366' }}
+                                    />
+                                  </TableCell>
+                                  <TableCell><Typography variant="caption">{pos.amount}</Typography></TableCell>
+                                  <TableCell><Typography variant="caption">${pos.price.toLocaleString()}</Typography></TableCell>
+                                  <TableCell><Typography variant="caption">${pos.closePrice?.toLocaleString()}</Typography></TableCell>
+                                  <TableCell>
+                                    <Typography variant="caption" color={pos.pnl >= 0 ? '#3B82F6' : '#FF3366'}>
+                                      {pos.pnl >= 0 ? '+' : '-'}${Math.abs(pos.pnl || 0).toFixed(2)}
+                                    </Typography>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      )}
+                    </Card>
+                  )}
 
-            {positionsTab === 1 && (
-              <Card>
-                {openOrders.length === 0 ? (
-                  <CardContent sx={{ textAlign: 'center', py: 4 }}>
-                    <Typography color="text.secondary">No open orders</Typography>
-                    <Typography variant="caption" color="text.secondary">Place a limit order to see it here</Typography>
-                  </CardContent>
-                ) : (
-                  <TableContainer sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
-                    <Table size="small" sx={{ '& .MuiTableCell-root': { px: {xs: 0.5, sm: 1}, whiteSpace: 'nowrap' } }}>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Pair</TableCell>
-                          <TableCell>Type</TableCell>
-                          <TableCell>Amount</TableCell>
-                          <TableCell>Limit Price</TableCell>
-                          <TableCell>Total</TableCell>
-                          <TableCell>Cancel</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {openOrders.map((order) => (
-                          <TableRow key={order._id}>
-                            <TableCell><Typography variant="caption" sx={{ fontWeight: 'bold' }}>{order.pair}</Typography></TableCell>
-                            <TableCell>
-                              <Chip label={order.type.toUpperCase()} size="small"
-                                sx={{ fontSize: '0.65rem', bgcolor: (order.type === 'long' || order.type === 'buy') ? 'rgba(59, 130, 246,0.15)' : 'rgba(255,51,102,0.15)', color: (order.type === 'long' || order.type === 'buy') ? '#3B82F6' : '#FF3366' }}
-                              />
-                            </TableCell>
-                            <TableCell><Typography variant="caption">{order.amount}</Typography></TableCell>
-                            <TableCell><Typography variant="caption">${order.price.toLocaleString()}</Typography></TableCell>
-                            <TableCell><Typography variant="caption">${order.total.toLocaleString()}</Typography></TableCell>
-                            <TableCell>
-                              <Tooltip title="Cancel Order">
-                                <IconButton size="small" color="error"
-                                  onClick={() => handleCancelOrder(order._id)}
-                                  disabled={cancellingId === order._id}
-                                >
-                                  {cancellingId === order._id ? <CircularProgress size={16} /> : <CancelOutlined fontSize="small" />}
-                                </IconButton>
-                              </Tooltip>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
-              </Card>
-            )}
+                  {/* Open Orders */}
+                  {positionsTab === 1 && (
+                    <Card>
+                      {filteredOpenOrders.length === 0 ? (
+                        <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                          <Typography color="text.secondary">No open orders</Typography>
+                          <Typography variant="caption" color="text.secondary">Place a limit order to see it here</Typography>
+                        </CardContent>
+                      ) : (
+                        <TableContainer sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+                          <Table size="small" sx={{ '& .MuiTableCell-root': { px: {xs: 0.5, sm: 1}, whiteSpace: 'nowrap' } }}>
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Pair</TableCell>
+                                <TableCell>Type</TableCell>
+                                <TableCell>Amount</TableCell>
+                                <TableCell>Limit Price</TableCell>
+                                <TableCell>Total</TableCell>
+                                <TableCell>Cancel</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {filteredOpenOrders.map((order) => (
+                                <TableRow key={order._id}>
+                                  <TableCell><Typography variant="caption" sx={{ fontWeight: 'bold' }}>{order.pair}</Typography></TableCell>
+                                  <TableCell>
+                                    <Chip label={order.type.toUpperCase()} size="small"
+                                      sx={{ fontSize: '0.65rem', bgcolor: (order.type === 'long' || order.type === 'buy') ? 'rgba(59, 130, 246,0.15)' : 'rgba(255,51,102,0.15)', color: (order.type === 'long' || order.type === 'buy') ? '#3B82F6' : '#FF3366' }}
+                                    />
+                                  </TableCell>
+                                  <TableCell><Typography variant="caption">{order.amount}</Typography></TableCell>
+                                  <TableCell><Typography variant="caption">${order.price.toLocaleString()}</Typography></TableCell>
+                                  <TableCell><Typography variant="caption">${order.total.toLocaleString()}</Typography></TableCell>
+                                  <TableCell>
+                                    <Tooltip title="Cancel Order">
+                                      <IconButton size="small" color="error"
+                                        onClick={() => handleCancelOrder(order._id)}
+                                        disabled={cancellingId === order._id}
+                                      >
+                                        {cancellingId === order._id ? <CircularProgress size={16} /> : <CancelOutlined fontSize="small" />}
+                                      </IconButton>
+                                    </Tooltip>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      )}
+                    </Card>
+                  )}
+                </>
+              );
+            })()}
           </Box>
         </>
       )}
